@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "builds": [{ "src": "dist/server.js", "use": "@vercel/node" }],
+  "routes": [
+    { "src": "/sse", "dest": "/dist/server.js" },
+    { "src": "/messages", "dest": "/dist/server.js" },
+    { "src": "/health", "dest": "/dist/server.js" }
+  ]
+}
