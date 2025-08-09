@@ -4,7 +4,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 
 const APIFY_URL = process.env.APIFY_MCP_URL || 'https://mcp.apify.com';
-const APIFY_TOKEN = (process.env.APIFY_TOKEN || '').trim(); // lenient: don't throw at module load
+const APIFY_TOKEN = (process.env.APIFY_TOKEN || '').trim();   // ← no hard throw here
 const APIFY_TOOLS = (process.env.APIFY_TOOLS || 'docs').split(',');
 
 function ensureToken() {
@@ -12,7 +12,7 @@ function ensureToken() {
 }
 
 async function withApify(fn) {
-  ensureToken(); // only check when actually calling upstream
+  ensureToken(); // ← only check when actually calling Apify
   const transport = new StreamableHTTPClientTransport(APIFY_URL, {
     headers: { Authorization: `Bearer ${APIFY_TOKEN}` },
   });
