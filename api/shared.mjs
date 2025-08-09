@@ -3,8 +3,8 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 
-const APIFY_URL = process.env.APIFY_MCP_URL || 'https://mcp.apify.com';
-const APIFY_TOKEN = (process.env.APIFY_TOKEN || '').trim(); // lenient: don't throw at module load
+const APIFY_URL   = process.env.APIFY_MCP_URL || 'https://mcp.apify.com';
+const APIFY_TOKEN = (process.env.APIFY_TOKEN || '').trim();   // don't crash at module load
 const APIFY_TOOLS = (process.env.APIFY_TOOLS || 'docs').split(',');
 
 function ensureToken() {
@@ -37,27 +37,44 @@ async function docsFetch(client, ids) {
 
 export const server = new McpServer({ name: 'apify-mcp-adapter', version: '1.0.0' });
 
+// --- REQUIRED SHAPES FOR CHATGPT CONNECTORS ---
+
+// SEARCH — accepts ONLY { query: string }
 server.tool('search', {
   type: 'object',
-  properties: { query: { type: 'string' }, topK: { type: 'number' }, traceId: { type: 'string' } },
+  properties: { query: { type: 'string' } },
   required: ['query'],
-}, async ({ query, topK = 8, traceId }) => {
-  const data = await withApify(c => docsSearch(c, query, topK));
+  additionalProperties: false,
+}, async ({ query }) => {
+  const data = await withApify(c => docsSearch(c, query, 8));
   const hits = Array.isArray(data?.content) ? data.content : [];
-  const items = hits.map(h => ({ id: h?.id || h?.url, title: h?.title, url: h?.url, snippet: h?.snippet, score: h?.score })).filter(x => x?.url);
+  const items = hits.map(h => ({
+    id: h?.id || h?.url,
+    title: h?.title,
+    url: h?.url,
+    snippet: h?.snippet,
+    score: h?.score,
+  })).filter(x => x?.url);
   const objectIds = items.map(x => x.url);
-  return { content: [{ type: 'json', data: { objectIds, items, traceId } }] };
+  return { content: [{ type: 'json', data: { objectIds, items } }] };
 });
 
+// FETCH — accepts ONLY { objectIds: string[] }
 server.tool('fetch', {
   type: 'object',
-  properties: { objectIds: { type: 'array', items: { type: 'string' } }, traceId: { type: 'string' } },
+  properties: { objectIds: { type: 'array', items: { type: 'string' } } },
   required: ['objectIds'],
-}, async ({ objectIds, traceId }) => {
+  additionalProperties: false,
+}, async ({ objectIds }) => {
   const data = await withApify(c => docsFetch(c, objectIds));
   const docs = Array.isArray(data?.content) ? data.content : [];
-  const documents = docs.map(d => ({ id: d?.id || d?.url, url: d?.url, title: d?.title, content: d?.content || d?.text || '' })).filter(x => x?.url);
-  return { content: [{ type: 'json', data: { documents, traceId } }] };
+  const documents = docs.map(d => ({
+    id: d?.id || d?.url,
+    url: d?.url,
+    title: d?.title,
+    content: d?.content || d?.text || '',
+  })).filter(x => x?.url);
+  return { content: [{ type: 'json', data: { documents } }] };
 });
 
 export const transport = new StreamableHTTPServerTransport({ path: '/messages/' });
